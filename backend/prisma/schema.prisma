@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Program {
+  B_TECH
+  M_TECH
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+enum InstructorRole {
+  LECTURER
+  LAB
+  COORDINATOR
+}
+
+model Student {
+  id            String       @id @default(uuid())
+  rollNo        String       @unique @map("roll_no")
+  name          String
+  emailId       String       @unique @map("email_id")
+  passwordHash  String       @map("password_hash")
+  program       Program
+  department    String
+  enrollments   Enrollment[]
+  attendances   Attendance[]
+
+  @@map("students")
+}
+
+model Teacher {
+  id               String             @id @default(uuid())
+  emailId          String             @unique @map("email_id")
+  passwordHash     String             @map("password_hash")
+  department       String
+  courseInstructs  CourseInstructor[]
+
+  @@map("teachers")
+}
+
+model Course {
+  id                String             @id @default(uuid())
+  courseCode        String             @unique @map("course_code")
+  courseName        String             @map("course_name")
+  semester          Int
+  session           String
+  enrollments       Enrollment[]
+  attendanceSessions AttendanceSession[]
+  courseInstructors CourseInstructor[]
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id        String  @id @default(uuid())
+  studentId String  @map("student_id")
+  courseId  String  @map("course_id")
+  labGroup  String? @map("lab_group")
+  
+  student   Student @relation(fields: [studentId], references: [id])
+  course    Course  @relation(fields: [courseId], references: [id])
+
+  @@map("enrollments")
+}
+
+model CourseInstructor {
+  id        String         @id @default(uuid())
+  teacherId String         @map("teacher_id")
+  courseId  String         @map("course_id")
+  role      InstructorRole
+
+  teacher   Teacher        @relation(fields: [teacherId], references: [id])
+  course    Course         @relation(fields: [courseId], references: [id])
+  sessions  AttendanceSession[]
+
+  @@map("course_instructors")
+}
+
+model AttendanceSession {
+  id                 String           @id @default(uuid())
+  courseId           String           @map("course_id")
+  courseInstructorId String           @map("course_instructor_id")
+  startTime          DateTime         @map("start_time")
+  endTime            DateTime?        @map("end_time")
+  isActive           Boolean          @default(true) @map("is_active")
+
+  course             Course           @relation(fields: [courseId], references: [id])
+  instructor         CourseInstructor @relation(fields: [courseInstructorId], references: [id])
+  attendances        Attendance[]
+
+  @@map("attendance_sessions")
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  studentId String           @map("student_id")
+  sessionId String           @map("session_id")
+  date      DateTime         @default(now())
+  status    AttendanceStatus
+
+  student   Student           @relation(fields: [studentId], references: [id])
+  session   AttendanceSession @relation(fields: [sessionId], references: [id])
+
+  @@map("attendance")
+}

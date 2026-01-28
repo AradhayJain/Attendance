@@ -3,7 +3,7 @@ const { StatusCodes } = require('http-status-codes')
 const { BadRequestError, UnauthenticatedError } = require('../errors')
 
 
-const register = async (req, res) => {
+const studentRegister = async (req, res) => {
   // if(!name || ! email || !password){
   //   throw new BadRequestError('Please provide name, username ad Password');
   // } // Instead we use the mongoose validator
@@ -20,7 +20,7 @@ const register = async (req, res) => {
   const token= user.createJWT();
   res.status(StatusCodes.CREATED).json({user:{name},token});
 }
-const login = async (req, res) => {
+const studentLogin = async (req, res) => {
 
   const{email,password}=req.body;
   if(!email || !password){
@@ -33,6 +33,6 @@ const login = async (req, res) => {
 }
 
 module.exports = {
-    register,
-    login,
+    studentRegister,
+    studentLogin,
   }
