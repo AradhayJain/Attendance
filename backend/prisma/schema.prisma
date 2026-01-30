@@ -22,7 +22,11 @@ enum AttendanceStatus {
 enum InstructorRole {
   LECTURER
   LAB
-  COORDINATOR
+}
+
+enum Enrolled{
+  ENROLLED
+  NOT_ENROLLED
 }
 
 model Student {
@@ -45,6 +49,7 @@ model Teacher {
   passwordHash     String             @map("password_hash")
   department       String
   courseInstructs  CourseInstructor[]
+  courseCoordinator  Course[]
 
   @@map("teachers")
 }
@@ -55,9 +60,14 @@ model Course {
   courseName        String             @map("course_name")
   semester          Int
   session           String
+  courseCoordinator String
+
   enrollments       Enrollment[]
   attendanceSessions AttendanceSession[]
   courseInstructors CourseInstructor[]
+
+  teacher   Teacher @relation(fields: [courseCoordinator], references: [id])
+
 
   @@map("courses")
 }
@@ -67,6 +77,7 @@ model Enrollment {
   studentId String  @map("student_id")
   courseId  String  @map("course_id")
   labGroup  String? @map("lab_group")
+  enrolled  Enrolled
   
   student   Student @relation(fields: [studentId], references: [id])
   course    Course  @relation(fields: [courseId], references: [id])
