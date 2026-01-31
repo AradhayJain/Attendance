@@ -1,31 +1,68 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import api from '../../services/api'; // Import api
+import { useAuth } from '../../context/AuthContext'; // Import useAuth
 
 export default function StudentDashboard() {
     const router = useRouter();
-    const [invites, setInvites] = useState([
-        { id: '101', course: 'Database Systems', teacher: 'Prof. Smith' },
-    ]);
+    const { user, token } = useAuth();
+    const [invites, setInvites] = useState<any[]>([]);
+    const [enrolled, setEnrolled] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const enrolled = [
-        { id: '1', course: 'Software Engineering', attendance: '85%', teacher: 'Prof. Johnson' },
-        { id: '2', course: 'Data Structures', attendance: '92%', teacher: 'Dr. Alan' },
-    ];
-
-    const handleAccept = (id: string) => {
-        Alert.alert("Course Joined", "You have successfully joined Database Systems.");
-        setInvites(invites.filter(i => i.id !== id));
+    const fetchData = async () => {
+        try {
+            const [invitesRes, enrolledRes] = await Promise.all([
+                api.get('/enroll/invitations'),
+                api.get('/enroll/enrolled')
+            ]);
+            setInvites(invitesRes.data.enrollments || []);
+            setEnrolled(enrolledRes.data.enrollments || []);
+        } catch (error) {
+            console.error("Failed to fetch dashboard data:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleReject = (id: string) => {
-        setInvites(invites.filter(i => i.id !== id));
+    useEffect(() => {
+        if (token) {
+            fetchData();
+        }
+    }, [token]);
+
+    const handleAccept = async (id: string, courseName: string) => {
+        try {
+            await api.patch(`/enroll/${id}/register`);
+            Alert.alert("Success", `You have joined ${courseName}`);
+            fetchData(); // Refresh data
+        } catch (error) {
+            Alert.alert("Error", "Failed to join course");
+        }
     };
+
+    const handleReject = async (id: string) => {
+        try {
+            await api.delete(`/enroll/${id}`); // Assuming delete unenrolls/removes invite
+            setInvites(invites.filter(i => i.id !== id));
+        } catch (error) {
+            Alert.alert("Error", "Failed to reject invite");
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text>Loading dashboard...</Text>
+            </View>
+        );
+    }
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
@@ -40,8 +77,8 @@ export default function StudentDashboard() {
                                         <Ionicons name="mail-unread-outline" size={24} color={COLORS.primary} />
                                     </View>
                                     <View>
-                                        <Text style={styles.courseName}>{invite.course}</Text>
-                                        <Text style={styles.teacherName}>{invite.teacher}</Text>
+                                        <Text style={styles.courseName}>{invite.course.courseName}</Text>
+                                        <Text style={styles.teacherName}>{invite.course.courseCode}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.inviteActions}>
@@ -55,7 +92,7 @@ export default function StudentDashboard() {
                                     <Button
                                         title="Accept"
                                         size="small"
-                                        onPress={() => handleAccept(invite.id)}
+                                        onPress={() => handleAccept(invite.id, invite.course.courseName)}
                                         style={{ flex: 1 }}
                                     />
                                 </View>
@@ -67,37 +104,44 @@ export default function StudentDashboard() {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Enrolled Courses</Text>
-                <View style={styles.grid}>
-                    {enrolled.map((course) => (
-                        <Pressable
-                            key={course.id}
-                            onPress={() => router.push(`/student/courses/${course.id}` as any)}
-                            style={({ pressed }) => [
-                                styles.courseWrapper,
-                                pressed && { opacity: 0.9 }
-                            ]}
-                        >
-                            <Card padding="m" style={{ height: '100%' }}>
-                                <View style={styles.courseHeader}>
-                                    <View style={[styles.inviteIcon, { backgroundColor: '#ECFDF5' }]}>
-                                        <Ionicons name="book-outline" size={24} color={COLORS.secondary} />
+                {enrolled.length === 0 ? (
+                    <View style={{ padding: SPACING.l, alignItems: 'center' }}>
+                        <Text style={{ color: COLORS.textLight }}>No enrolled courses yet.</Text>
+                    </View>
+                ) : (
+                    <View style={styles.grid}>
+                        {enrolled.map((enrollment) => (
+                            <Pressable
+                                key={enrollment.id}
+                                onPress={() => router.push(`/student/courses/${enrollment.course.id}` as any)}
+                                style={({ pressed }) => [
+                                    styles.courseWrapper,
+                                    pressed && { opacity: 0.9 }
+                                ]}
+                            >
+                                <Card padding="m" style={{ height: '100%' }}>
+                                    <View style={styles.courseHeader}>
+                                        <View style={[styles.inviteIcon, { backgroundColor: '#ECFDF5' }]}>
+                                            <Ionicons name="book-outline" size={24} color={COLORS.secondary} />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.courseName}>{enrollment.course.courseName}</Text>
+                                            <Text style={styles.teacherName}>{enrollment.course.courseCode}</Text>
+                                        </View>
+                                        <View style={styles.attendanceBadge}>
+                                            {/* Placeholder for attendance % until we have an endpoint for it */}
+                                            <Text style={styles.attendanceText}>--%</Text>
+                                        </View>
                                     </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.courseName}>{course.course}</Text>
-                                        <Text style={styles.teacherName}>{course.teacher}</Text>
+                                    <View style={styles.progressBar}>
+                                        <View style={[styles.progressFill, { width: '0%' }]} />
                                     </View>
-                                    <View style={styles.attendanceBadge}>
-                                        <Text style={styles.attendanceText}>{course.attendance}</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.progressBar}>
-                                    <View style={[styles.progressFill, { width: course.attendance as any }]} />
-                                </View>
-                                <Text style={styles.progressLabel}>Overall Attendance</Text>
-                            </Card>
-                        </Pressable>
-                    ))}
-                </View>
+                                    <Text style={styles.progressLabel}>Overall Attendance</Text>
+                                </Card>
+                            </Pressable>
+                        ))}
+                    </View>
+                )}
             </View>
         </ScrollView>
     );

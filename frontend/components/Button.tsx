@@ -6,7 +6,7 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 interface ButtonProps {
     title: string;
     onPress: () => void;
-    variant?: 'primary' | 'secondary' | 'outline';
+    variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
     size?: 'small' | 'medium' | 'large';
     isLoading?: boolean;
     disabled?: boolean;
@@ -31,7 +31,7 @@ export default function Button({
 
     const getTextColor = () => {
         if (disabled) return COLORS.textLight;
-        if (variant === 'outline') return COLORS.primary;
+        if (variant === 'outline' || variant === 'ghost') return COLORS.primary;
         return '#FFFFFF';
     };
 

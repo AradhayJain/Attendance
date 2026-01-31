@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,17 +6,54 @@ import StatsCard from '../../components/StatsCard';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
+import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TeacherDashboard() {
     const router = useRouter();
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
+    const { user, token } = useAuth();
+    const [courses, setCourses] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const courses = [
-        { id: '1', name: 'Software Engineering', code: 'CS301', students: 45, attendance: '85%' },
-        { id: '2', name: 'Data Structures', code: 'CS202', students: 50, attendance: '92%' },
-        { id: '3', name: 'Web Development', code: 'CS305', students: 38, attendance: '78%' },
-    ];
+    useEffect(() => {
+        const fetchCourses = async () => {
+            if (!user?.id || !token) return;
+            try {
+                // Fetch courses where this teacher is an instructor
+                const response = await api.get('/ci', {
+                    params: { teacherId: user.id }
+                });
+
+                // transform response to match UI needs
+                // response.data.instructors is array of { course: {...}, ... }
+                const fetchedCourses = response.data.instructors.map((item: any) => ({
+                    id: item.course.id,
+                    name: item.course.courseName,
+                    code: item.course.courseCode,
+                    students: 0, // We need another endpoint or aggregate to get student count per course
+                    attendance: '--%' // Placeholder
+                }));
+
+                setCourses(fetchedCourses);
+            } catch (error) {
+                console.error("Failed to fetch teacher courses:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCourses();
+    }, [user, token]);
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text>Loading dashboard...</Text>
+            </View>
+        );
+    }
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
@@ -30,13 +66,13 @@ export default function TeacherDashboard() {
                 isMobile && { flexDirection: 'column', flexWrap: 'nowrap' }
             ]}>
                 <View style={[styles.statsCardWrapper, !isMobile && { minWidth: 200 }]}>
-                    <StatsCard label="Total Students" value="133" icon="people" color={COLORS.primary} />
+                    <StatsCard label="Total Students" value="--" icon="people" color={COLORS.primary} />
                 </View>
                 <View style={[styles.statsCardWrapper, !isMobile && { minWidth: 200 }]}>
-                    <StatsCard label="Active Courses" value="3" icon="library" color={COLORS.secondary} />
+                    <StatsCard label="Active Courses" value={courses.length.toString()} icon="library" color={COLORS.secondary} />
                 </View>
                 <View style={[styles.statsCardWrapper, !isMobile && { minWidth: 200 }]}>
-                    <StatsCard label="Avg. Attendance" value="85%" icon="bar-chart" color={COLORS.warning} />
+                    <StatsCard label="Avg. Attendance" value="--%" icon="bar-chart" color={COLORS.warning} />
                 </View>
             </View>
 
@@ -49,42 +85,48 @@ export default function TeacherDashboard() {
                 />
             </View>
 
-            <View style={styles.courseGrid}>
-                {courses.map((course) => (
-                    <Pressable
-                        key={course.id}
-                        onPress={() => router.push(`/teacher/courses/${course.id}` as any)}
-                        style={({ pressed }) => [
-                            styles.courseCardWrapper,
-                            pressed && { opacity: 0.9 }
-                        ]}
-                    >
-                        <Card padding="m" style={{ height: '100%' }}>
-                            <View style={styles.courseHeader}>
-                                <View style={styles.iconBox}>
-                                    <Text style={styles.courseIconText}>{course.code.substring(0, 2)}</Text>
+            {courses.length === 0 ? (
+                <View style={{ padding: SPACING.l, alignItems: 'center' }}>
+                    <Text style={{ color: COLORS.textLight }}>You are not instructing any courses yet.</Text>
+                </View>
+            ) : (
+                <View style={styles.courseGrid}>
+                    {courses.map((course) => (
+                        <Pressable
+                            key={course.id}
+                            onPress={() => router.push(`/teacher/courses/${course.id}` as any)}
+                            style={({ pressed }) => [
+                                styles.courseCardWrapper,
+                                pressed && { opacity: 0.9 }
+                            ]}
+                        >
+                            <Card padding="m" style={{ height: '100%' }}>
+                                <View style={styles.courseHeader}>
+                                    <View style={styles.iconBox}>
+                                        <Text style={styles.courseIconText}>{course.code.substring(0, 2)}</Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.courseName}>{course.name}</Text>
+                                        <Text style={styles.courseCode}>{course.code}</Text>
+                                    </View>
+                                    <Ionicons name="ellipsis-vertical" size={20} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
                                 </View>
-                                <View>
-                                    <Text style={styles.courseName}>{course.name}</Text>
-                                    <Text style={styles.courseCode}>{course.code}</Text>
-                                </View>
-                                <Ionicons name="ellipsis-vertical" size={20} color={COLORS.textLight} style={{ marginLeft: 'auto' }} />
-                            </View>
 
-                            <View style={styles.courseFooter}>
-                                <View style={styles.courseStat}>
-                                    <Ionicons name="people-outline" size={16} color={COLORS.textLight} />
-                                    <Text style={styles.statText}>{course.students} Students</Text>
+                                <View style={styles.courseFooter}>
+                                    <View style={styles.courseStat}>
+                                        <Ionicons name="people-outline" size={16} color={COLORS.textLight} />
+                                        <Text style={styles.statText}>{course.students} Students</Text>
+                                    </View>
+                                    <View style={styles.courseStat}>
+                                        <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
+                                        <Text style={[styles.statText, { color: COLORS.success }]}>{course.attendance}</Text>
+                                    </View>
                                 </View>
-                                <View style={styles.courseStat}>
-                                    <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
-                                    <Text style={[styles.statText, { color: COLORS.success }]}>{course.attendance}</Text>
-                                </View>
-                            </View>
-                        </Card>
-                    </Pressable>
-                ))}
-            </View>
+                            </Card>
+                        </Pressable>
+                    ))}
+                </View>
+            )}
         </ScrollView>
     );
 }

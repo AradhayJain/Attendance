@@ -12,11 +12,7 @@ export default function LandingPage() {
   const isMobile = width < 768;
 
   const handleRoleSelect = (role: 'student' | 'teacher') => {
-    if (role === 'teacher') {
-      router.push('/teacher/dashboard' as any);
-    } else {
-      router.push('/student/dashboard' as any);
-    }
+    router.push(`/auth/login?role=${role}` as any);
   };
 
   return (
