@@ -8,10 +8,9 @@ const cors=require('cors');
 const xss=require('xss-clean');
 const rateLimiter=require('express-rate-limit');
 
-const connectDB= require('./utils/db/connect');
 const express = require('express');
 const app = express();
-
+const prisma = require('./utils/db/prisma');
 
 // routers
 const authRouter=require('./routes/auth.router');
@@ -29,6 +28,9 @@ const authenticationMiddleware=require('./middleware/allowed/authentication');
 // Middleware
 const teacherAllowedMiddleware=require('./middleware/allowed/teacher');
 
+// cron jobs
+const { initScheduledJobs } = require('./utils/cron-jobs/sessionCleanup');
+
 app.set('trust proxy',1);
 app.use(
   rateLimiter({
@@ -42,29 +44,42 @@ app.use(helmet());
 app.use(cors());
 app.use(xss());
 
-app.use('/api/v1/auth',authRouter);
-app.use('/api/v1/course',authenticationMiddleware,teacherAllowedMiddleware,courseRouter);
-app.use('/api/v1/ci',authenticationMiddleware,teacherAllowedMiddleware,courseInstructorRouter);
-app.use('/api/v1/enroll',authenticationMiddleware,enrollRouter);
-app.use('/api/v1/attendance',authenticationMiddleware,attendanceRouter);
-app.use('/api/v1/attendance-session',authenticationMiddleware,attendanceSessionRouter);
+// --- ROUTES ---
 
+// Public routes
+app.use('/api/v1/auth', authRouter);
 
+// Student & Teacher accessible routes
+// (authenticationMiddleware sets req.user)
+app.use('/api/v1/enroll', authenticationMiddleware, enrollRouter);
+app.use('/api/v1/attendance', authenticationMiddleware, attendanceRouter);
+
+// Teacher-Only routes
+app.use('/api/v1/course', authenticationMiddleware, teacherAllowedMiddleware, courseRouter);
+app.use('/api/v1/ci', authenticationMiddleware, teacherAllowedMiddleware, courseInstructorRouter);
+app.use('/api/v1/attendance-session', authenticationMiddleware, teacherAllowedMiddleware, attendanceSessionRouter);
+
+// Error Middlewares
 app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);
+
+// Initialize Cron Jobs
+initScheduledJobs();
 
 const port = process.env.PORT || 3000;
 
 const start = async () => {
   try {
-    await connectDB(process.env.MONGO_URI);
-    console.log("DB connected");
-    
+    // This pings the Postgres DB to ensure credentials are correct
+    await prisma.$connect();
+    console.log("PostgreSQL connected via Prisma");
+
     app.listen(port, () =>
       console.log(`Server is listening on port ${port}...`)
     );
   } catch (error) {
-    console.log(error);
+    console.error("Database connection failed:", error);
+    process.exit(1);
   }
 };
 
