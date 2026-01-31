@@ -375,7 +375,7 @@ module.exports = {
   markAbsent,
   markPresent,
   getAllAttendance,
-  getAttendanceById,
+  // getAttendanceById,
   getConsolidatedAttendance,
   getAllAttendanceByDate,
   getAllAttendanceByStudentId,

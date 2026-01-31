@@ -7,6 +7,7 @@ const { BadRequestError, UnauthenticatedError } = require('../../utils/errors')
 
 const teacherRegister = async (req, res) => {
   const { emailId, password, department } = req.body
+  console.log(req.body)
   if (!emailId || !password) throw new BadRequestError('Please provide email and password')
 
   const existing = await prisma.teacher.findUnique({ where: { emailId } })

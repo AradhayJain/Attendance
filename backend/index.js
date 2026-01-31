@@ -23,7 +23,7 @@ const courseInstructorRouter=require('./routes/courseInstructor.router');
 // error handler
 const notFoundMiddleware = require('./middleware/not-found');
 const errorHandlerMiddleware = require('./middleware/error-handler');
-const authenticationMiddleware=require('./middleware/allowed/authentication');
+const authenticationMiddleware=require('./middleware/authentication');
 
 // Middleware
 const teacherAllowedMiddleware=require('./middleware/allowed/teacher');

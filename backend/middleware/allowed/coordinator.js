@@ -1,4 +1,4 @@
-const {UnauthenticatedError}= require('../errors');
+const {UnauthenticatedError}= require('../../utils/errors');
 const {prisma} = require('../../utils/db/prisma');
 
 // Middleware to check if user is the course coordinator for the course

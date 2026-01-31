@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const prisma = require('./db/prisma');
+const prisma = require('../db/prisma');
 
 const initScheduledJobs = () => {
   // Run every 30 minutes

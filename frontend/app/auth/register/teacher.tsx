@@ -34,6 +34,7 @@ export default function TeacherRegisterScreen() {
 
         setLoading(true);
         try {
+            console.log(email, password, department);
             const response = await api.post('/auth/register/teacher', {
                 emailId: email,
                 password,

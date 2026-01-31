@@ -8,6 +8,7 @@
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "host": "lan",
     "ios": {
       "supportsTablet": true
     },

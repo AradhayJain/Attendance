@@ -1,4 +1,4 @@
-const {UnauthenticatedError}= require('../errors');
+const {UnauthenticatedError}= require('../../utils/errors');
 
 // course and enroll endpoint middleware to check if user is teacher
 const teacherAllowedMiddleware=(req,res,next)=>{
