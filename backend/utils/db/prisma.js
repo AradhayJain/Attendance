@@ -1,8 +1,13 @@
-// backend/utils/db/prisma.js
 const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
+});
 
 const prisma = new PrismaClient({
-  log: ["query", "error", "warn"], // optional but useful
+  adapter,
+  log: ["query", "error", "warn"],
 });
 
 module.exports = prisma;
