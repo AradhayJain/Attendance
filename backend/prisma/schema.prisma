@@ -48,6 +48,7 @@ model Teacher {
   emailId          String             @unique @map("email_id")
   passwordHash     String             @map("password_hash")
   department       String
+  name             String
   courseInstructs  CourseInstructor[]
   courseCoordinator  Course[]
 
