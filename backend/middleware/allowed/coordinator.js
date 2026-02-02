@@ -1,9 +1,9 @@
 const {UnauthenticatedError}= require('../../utils/errors');
-const {prisma} = require('../../utils/db/prisma');
+const prisma = require('../../utils/db/prisma');
 
 // Middleware to check if user is the course coordinator for the course
 const coordinatorAllowedMiddleware = async (req, res, next) => {
-    const courseId = req.params.id;
+    const courseId = req.params.courseId;
     
     if (!courseId) {
         throw new UnauthenticatedError('Course ID is required');

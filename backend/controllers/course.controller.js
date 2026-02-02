@@ -131,9 +131,9 @@ const getAllCourses = async (req, res) => {
     if(!id){
         throw new BadRequestError('User ID not found in request');
     }
-  const where = {id: id};
+  const where = {courseCoordinator: id};
   if (semester !== undefined) where.semester = parseInt(semester)
-  if (session) where.session = session
+  if (session ) where.session = session
 
   const courses = await prisma.course.findMany({
     where,
@@ -149,7 +149,10 @@ const getCourseById = async (req, res) => {
   if (!id) throw new BadRequestError('Course ID is required')
 
   const course = await prisma.course.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      teacher: true,
+    },
   })
 
   if (!course) throw new NotFoundError('Course not found')
