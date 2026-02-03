@@ -3,69 +3,19 @@ const { StatusCodes } = require('http-status-codes')
 const { BadRequestError, NotFoundError } = require('../utils/errors')
 const fs = require('fs')
 const path = require('path')
-
-// Helper: parse CSV file and extract roll numbers
-const parseCSV = (filePath) => {
-  const content = fs.readFileSync(filePath, 'utf-8')
-
-  const lines = content
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-
-  if (lines.length < 2) {
-    throw new BadRequestError('CSV file is empty or missing data')
-  }
-
-  // Normalize headers
-  const headers = lines[0]
-    .split(',')
-    .map(h => h.trim().toLowerCase())
-
-  // Find column that starts with "roll"
-  const rollIndex = headers.findIndex(h =>
-    h.startsWith('roll') ||
-    h.replace(/[\s_-]/g, '').startsWith('roll')
-  )
-
-  if (rollIndex === -1) {
-    throw new BadRequestError(
-      'CSV must contain a roll number column (e.g. roll, roll_no, roll number)'
-    )
-  }
-
-  const rollNos = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i]
-      .split(',')
-      .map(field => field.trim())
-
-    const roll = row[rollIndex]
-
-    if (roll) {
-      rollNos.push(roll)
-    }
-  }
-
-  if (rollNos.length === 0) {
-    throw new BadRequestError('No roll numbers found in CSV')
-  }
-
-  return rollNos
-}
+const parseFile  = require('../utils/parseFile')
 
 
 // Extract students from CSV and send invitations
 const extractStudents = async (req, res) => {
-  const { courseId } = req.body
+  const { courseId } = req.params
 
   if (!courseId) throw new BadRequestError('Please provide courseId')
   if (!req.file) throw new BadRequestError('Please upload a CSV file')
 
   let studentRolls = []
   try {
-    studentRolls = parseCSV(req.file.path)
+    studentRolls = parseFile(req.file.path)
   } catch (err) {
     // Clean up uploaded file
     fs.unlinkSync(req.file.path)
@@ -78,18 +28,18 @@ const extractStudents = async (req, res) => {
   })
   if (!course) throw new NotFoundError('Course not found')
 
-  // Find students by email and create enrollments with NOT_ENROLLED status
+  // Find students by rollNo and create enrollments with NOT_ENROLLED status
   const createdEnrollments = []
   const failedRoll = []
 
-  for (const email of studentRolls) {
+  for (const rollNo of studentRolls) {
     try {
       const student = await prisma.student.findUnique({
-        where: { emailId: email },
+        where: { rollNo: rollNo },
       })
 
       if (!student) {
-        failedRoll.push({ email, reason: 'Student not found' })
+        failedRoll.push({ rollNo, reason: 'Student not found' })
         continue
       }
 
@@ -102,7 +52,7 @@ const extractStudents = async (req, res) => {
       })
 
       if (existing) {
-        failedRoll.push({ email, reason: 'Already enrolled or invited' })
+        failedRoll.push({ rollNo, reason: 'Already enrolled or invited' })
         continue
       }
 
@@ -121,7 +71,7 @@ const extractStudents = async (req, res) => {
 
       createdEnrollments.push(enrollment)
     } catch (error) {
-      failedRoll.push({ email, reason: error.message })
+      failedRoll.push({ rollNo, reason: error.message })
     }
   }
 
