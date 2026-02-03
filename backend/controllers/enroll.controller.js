@@ -4,26 +4,57 @@ const { BadRequestError, NotFoundError } = require('../utils/errors')
 const fs = require('fs')
 const path = require('path')
 
-// Helper: parse CSV file (basic parser for email column)
+// Helper: parse CSV file and extract roll numbers
 const parseCSV = (filePath) => {
   const content = fs.readFileSync(filePath, 'utf-8')
-  const lines = content.split('\n').filter((line) => line.trim())
-  
-  if (lines.length < 2) throw new BadRequestError('CSV file is empty or missing data')
-  
-  const header = lines[0].toLowerCase().split(',').map((h) => h.trim())
-  const emailIndex = header.findIndex((h) => h.includes('email'))
-  
-  if (emailIndex === -1) throw new BadRequestError('CSV must contain an "email" column')
-  
-  const emails = []
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i].split(',').map((field) => field.trim())
-    if (row[emailIndex]) emails.push(row[emailIndex])
+
+  const lines = content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 2) {
+    throw new BadRequestError('CSV file is empty or missing data')
   }
-  
-  return emails
+
+  // Normalize headers
+  const headers = lines[0]
+    .split(',')
+    .map(h => h.trim().toLowerCase())
+
+  // Find column that starts with "roll"
+  const rollIndex = headers.findIndex(h =>
+    h.startsWith('roll') ||
+    h.replace(/[\s_-]/g, '').startsWith('roll')
+  )
+
+  if (rollIndex === -1) {
+    throw new BadRequestError(
+      'CSV must contain a roll number column (e.g. roll, roll_no, roll number)'
+    )
+  }
+
+  const rollNos = []
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i]
+      .split(',')
+      .map(field => field.trim())
+
+    const roll = row[rollIndex]
+
+    if (roll) {
+      rollNos.push(roll)
+    }
+  }
+
+  if (rollNos.length === 0) {
+    throw new BadRequestError('No roll numbers found in CSV')
+  }
+
+  return rollNos
 }
+
 
 // Extract students from CSV and send invitations
 const extractStudents = async (req, res) => {
@@ -32,9 +63,9 @@ const extractStudents = async (req, res) => {
   if (!courseId) throw new BadRequestError('Please provide courseId')
   if (!req.file) throw new BadRequestError('Please upload a CSV file')
 
-  let studentEmails = []
+  let studentRolls = []
   try {
-    studentEmails = parseCSV(req.file.path)
+    studentRolls = parseCSV(req.file.path)
   } catch (err) {
     // Clean up uploaded file
     fs.unlinkSync(req.file.path)
@@ -49,16 +80,16 @@ const extractStudents = async (req, res) => {
 
   // Find students by email and create enrollments with NOT_ENROLLED status
   const createdEnrollments = []
-  const failedEmails = []
+  const failedRoll = []
 
-  for (const email of studentEmails) {
+  for (const email of studentRolls) {
     try {
       const student = await prisma.student.findUnique({
         where: { emailId: email },
       })
 
       if (!student) {
-        failedEmails.push({ email, reason: 'Student not found' })
+        failedRoll.push({ email, reason: 'Student not found' })
         continue
       }
 
@@ -71,7 +102,7 @@ const extractStudents = async (req, res) => {
       })
 
       if (existing) {
-        failedEmails.push({ email, reason: 'Already enrolled or invited' })
+        failedRoll.push({ email, reason: 'Already enrolled or invited' })
         continue
       }
 
@@ -90,18 +121,18 @@ const extractStudents = async (req, res) => {
 
       createdEnrollments.push(enrollment)
     } catch (error) {
-      failedEmails.push({ email, reason: error.message })
+      failedRoll.push({ email, reason: error.message })
     }
   }
 
   res.status(StatusCodes.CREATED).json({
     message: 'Students extraction completed',
     created: createdEnrollments,
-    failed: failedEmails,
+    failed: failedRoll,
     summary: {
-      total: studentEmails.length,
+      total: studentRolls.length,
       succeeded: createdEnrollments.length,
-      failed: failedEmails.length,
+      failed: failedRoll.length,
     },
   })
 

@@ -6,7 +6,7 @@ const { BadRequestError, UnauthenticatedError } = require('../../utils/errors')
 
 
 const teacherRegister = async (req, res) => {
-  const { emailId, password, department } = req.body
+  const { emailId, password, department, name } = req.body
   console.log(req.body)
   if (!emailId || !password) throw new BadRequestError('Please provide email and password')
 
@@ -21,16 +21,17 @@ const teacherRegister = async (req, res) => {
       emailId,
       passwordHash,
       department,
+      name
     },
   })
 
   const token = jwt.sign(
-    { id: teacher.id, name: null, email: teacher.emailId, role: 'Teacher' },
+    { id: teacher.id, name: teacher.name, email: teacher.emailId, role: 'Teacher' },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_LIFETIME }
   )
 
-  res.status(StatusCodes.CREATED).json({ teacher: { id: teacher.id, email: teacher.emailId, department: teacher.department }, token })
+  res.status(StatusCodes.CREATED).json({ teacher: { id: teacher.id, email: teacher.emailId, department: teacher.department, name: teacher.name }, token })
 }
 const teacherLogin = async (req, res) => {
   const { emailId, password } = req.body
